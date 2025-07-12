@@ -6,6 +6,13 @@
   "description": "",
   "glyphs": [
     {
+      "icon_id": "34452959",
+      "name": "atm-fill",
+      "font_class": "atm-fill",
+      "unicode": "e837",
+      "unicode_decimal": 59447
+    },
+    {
       "icon_id": "1239930",
       "name": "加载",
       "font_class": "jiazai",
