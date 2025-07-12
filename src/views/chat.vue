@@ -3,6 +3,9 @@ import '../assets/iconfont/iconfont.css'
 import api from '../api/request.ts'
 import {type Ref, ref, onMounted} from 'vue'
 import {marked} from "marked";
+import { markedHighlight } from "marked-highlight"
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github.css';
 
 type message = {
   userText: string,
@@ -65,13 +68,13 @@ async function sendMessage() {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    messages.value[messages.value.length - 1].isLoading = false
-
     // 处理流式响应
     const reader = response.body?.getReader()
     if (!reader) {
       throw new Error("无法获取响应流")
     }
+
+    messages.value[messages.value.length - 1].isLoading = false
 
     const decoder = new TextDecoder()
     let content = ''
@@ -100,6 +103,8 @@ async function sendMessage() {
       }
     }
   }catch (error){
+    messages.value[messages.value.length - 1].isLoading = false
+    messages.value[messages.value.length - 1].aiText = '<span style="color: red;">服务器繁忙，请稍后再试。</span>'
     console.error(error)
   }finally {
     chatting = false
@@ -123,6 +128,14 @@ function createNewChat(){
 onMounted(() => {
   getModels()
   createSession()
+
+  marked.use(markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code: string, lang: string) {
+      const language = hljs.getLanguage(lang) ? lang : 'shell'
+      return hljs.highlight(code, { language }).value
+    }
+  }))
 })
 </script>
 
@@ -272,6 +285,7 @@ hr{
   border-top-left-radius: 4px;
   text-align: left;
   margin-left: 10px;
+  max-width: 90%;
 }
 
 .user-bubble {
@@ -344,7 +358,7 @@ hr{
 }
 
 .write-block{
-  margin-bottom: 150px;
+  margin-bottom: 200px;
 }
 
 .input-box {

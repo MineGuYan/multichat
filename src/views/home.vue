@@ -36,7 +36,7 @@ onMounted(() => {
     <!-- 新增的更新公告文字 -->
     <p class="update-notice">
       <span
-        v-for="(char, index) in '模型更新，思考更深，推理更强，APP和API全面上线'"
+        v-for="(char, index) in '多轮对话，多种模型，模型更新，思考更深，推理更强'"
         :key="index"
         :style="{ color: getCharColor(index) }"
         class="char"
@@ -54,8 +54,10 @@ onMounted(() => {
 
     <!-- 蓝色框包含开始对话按钮 -->
     <div class="chat-box">
-      <router-link to="/chat" class="button">开始对话</router-link>
-      <p class="description">与各种大模型免费对话，体验全新聊天模型</p>
+      <router-link to="/chat" class="button">
+        开始对话
+        <p class="description">与各种大模型免费对话，体验全新聊天模型</p>
+      </router-link>
     </div>
   </div>
 </template>
@@ -144,36 +146,35 @@ onMounted(() => {
 
 /* 蓝色框样式 */
 .chat-box {
-  max-width: 400px;
   margin: 60px auto;
   padding: 30px;
+  text-align: center;
+}
+
+.button {
+  max-width: 400px;
+  display: inline-block;
+  padding: 30px 30px;
+  color: #078eef;
+  text-decoration: none;
+  border-radius: 15px;
+  font-size: 28px;
+  font-weight: bold;
+  transition: all 0.3s;
+  margin-bottom: 15px;
+
   background-color: rgba(255, 255, 255, 0.1);
   /*改为更透明的白色，让背景图片能够更多地透过chat-box显示*/
   backdrop-filter: blur(8px);
   /* 减少模糊效果，让背景更清晰 */
-  border-radius: 15px;
-  text-align: center;
   box-shadow: 0 8px 32px rgba(81, 197, 239, 0.15);
   /* 减淡阴影效果 */
   border: 1px solid rgba(255, 255, 255, 0.2);
   /*增强边框，提高可见性*/
 }
 
-.button {
-  display: inline-block;
-  padding: 15px 30px;
-  background-color: white;
-  color: #078eef;
-  text-decoration: none;
-  border-radius: 8px;
-  font-size: 28px;
-  font-weight: bold;
-  transition: all 0.3s;
-  margin-bottom: 15px;
-}
-
 .button:hover {
-  background-color: #c1c0bc;
+  background-color: #d7d7d1;
   transform: translateY(-2px);
 }
 
