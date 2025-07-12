@@ -280,6 +280,7 @@ hr{
 }
 
 .ai-bubble {
+  padding: 0 16px;
   background-color: #efecec;
   color: #0e0b0b;
   border-top-left-radius: 4px;
@@ -287,6 +288,7 @@ hr{
   margin-left: 10px;
   max-width: 90%;
 }
+
 
 .user-bubble {
   background-color: #bdf6e8;
