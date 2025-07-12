@@ -2,6 +2,7 @@
 import '../assets/iconfont/iconfont.css'
 import api from '../api/request.ts'
 import {type Ref, ref, onMounted} from 'vue'
+import {marked} from "marked";
 
 type message = {
   userText: string,
@@ -16,9 +17,10 @@ export interface StreamResult {
 
 let llm: string[]
 let sessionId: string
-let currentModel = ref('')
-let uerInput = ref('')
-let messages: Ref<message[]> = ref([])
+let chatting: boolean = false
+const currentModel = ref('')
+const uerInput = ref('')
+const messages: Ref<message[]> = ref([])
 
 async function getModels() {
   const response = await api.get("/chat/models")
@@ -33,6 +35,7 @@ async function createSession() {
 
 async function sendMessage() {
   if (uerInput.value === '')return
+  if (chatting)return
 
   messages.value.push({
     userText: uerInput.value,
@@ -42,61 +45,64 @@ async function sendMessage() {
 
   uerInput.value = ''
 
-  // const response = await api.post("/chat/"+sessionId, {
-  //   message: messages.value[messages.value.length - 1].userText,
-  //   model: currentModel
-  // })
-
   const baseURL = api.defaults.baseURL || "";
+  try {
+    chatting = true
 
-  const response = await fetch(`${baseURL}/chat/${sessionId}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "text/event-stream",
-    },
-    body: JSON.stringify({
-      message: messages.value[messages.value.length - 1].userText,
-      model: currentModel
+    const response = await fetch(`${baseURL}/chat/${sessionId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+      body: JSON.stringify({
+        message: messages.value[messages.value.length - 1].userText,
+        model: currentModel.value
+      })
     })
-  });
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
 
-  messages.value[messages.value.length - 1].isLoading = false
+    messages.value[messages.value.length - 1].isLoading = false
 
-  // 处理流式响应
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error("无法获取响应流");
-  }
+    // 处理流式响应
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error("无法获取响应流")
+    }
 
-  const decoder = new TextDecoder();
+    const decoder = new TextDecoder()
+    let content = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+      const chunk = decoder.decode(value, { stream: true })
+      const lines = chunk.split("\n")
 
-    const chunk = decoder.decode(value, { stream: true });
-    const lines = chunk.split("\n");
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = JSON.parse(line.slice(6)) as StreamResult;
 
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        const data = JSON.parse(line.slice(6)) as StreamResult;
-
-        if (data.type === "chunk") {
-          // 追加内容到AI消息
-          messages.value[messages.value.length - 1].aiText+=data.content;
-        } else if (data.type === "end") {
-          break;
-        } else if (data.type === "error") {
-          console.error(`对话出错: ${data.content}`);
-          break;
+          if (data.type === "chunk") {
+            // 追加内容到AI消息
+            content+=data.content;
+            messages.value[messages.value.length - 1].aiText = marked(content) as string
+          } else if (data.type === "end") {
+            break
+          } else if (data.type === "error") {
+            console.error(`对话出错: ${data.content}`)
+            break
+          }
         }
       }
     }
+  }catch (error){
+    console.error(error)
+  }finally {
+    chatting = false
   }
 }
 
@@ -107,6 +113,11 @@ function handleEnter(e: KeyboardEvent) {
 
 function handleShiftEnter() {
   // 允许换行
+}
+
+function createNewChat(){
+  createSession()
+  messages.value=[]
 }
 
 onMounted(() => {
@@ -120,9 +131,9 @@ onMounted(() => {
     <ul>
       <li><i class="iconfont icon-ai"></i></li>
       <li><i class="iconfont icon-zhankaicebianlan"></i></li>
-      <li><i class="iconfont icon-duihuakuang"></i></li>
+      <li><i class="iconfont icon-duihuakuang" @click="createNewChat"></i></li>
     </ul>
-    <i class="bottom iconfont icon-tuichu"></i>
+    <router-link to="/" class="button"><i class="bottom iconfont icon-tuichu"></i></router-link>
   </div>
 
   <div class="chatting">
@@ -134,7 +145,7 @@ onMounted(() => {
       <div class="bubble user-bubble">{{ message.userText }}</div>
       <div class="avatar">AI</div>
       <div v-show="message.isLoading" class="loading-spinner"></div>
-      <div v-show="!message.isLoading" class="bubble ai-bubble">{{ message.aiText }}</div>
+      <div v-show="!message.isLoading" class="bubble ai-bubble" v-html="message.aiText"></div>
     </div>
   </div>
 
