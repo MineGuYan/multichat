@@ -29,6 +29,22 @@
   content: "\e620";
 }
 
+.icon-atm-fill:before {
+  content: "\e837";
+}
+
+.icon-jiazai:before {
+  content: "\e699";
+}
+
+.icon-atm-away-fill:before {
+  content: "\e836";
+}
+
+.icon-tuichu:before {
+  content: "\e620";
+}
+
 .icon-zhongxinshiyang:before {
   content: "\e65e";
 }
