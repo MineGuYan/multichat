@@ -2,6 +2,7 @@
 import '../assets/iconfont/iconfont.css'
 import api from '../api/request.ts'
 import {type Ref, ref, onMounted} from 'vue'
+import {marked} from "marked";
 
 type message = {
   userText: string,
@@ -16,9 +17,10 @@ export interface StreamResult {
 
 let llm: string[]
 let sessionId: string
-let currentModel = ref('')
-let uerInput = ref('')
-let messages: Ref<message[]> = ref([])
+let chatting: boolean = false
+const currentModel = ref('')
+const uerInput = ref('')
+const messages: Ref<message[]> = ref([])
 
 async function getModels() {
   const response = await api.get("/chat/models")
@@ -33,6 +35,7 @@ async function createSession() {
 
 async function sendMessage() {
   if (uerInput.value === '')return
+  if (chatting)return
 
   messages.value.push({
     userText: uerInput.value,
@@ -42,63 +45,64 @@ async function sendMessage() {
 
   uerInput.value = ''
 
-  // const response = await api.post("/chat/"+sessionId, {
-  //   message: messages.value[messages.value.length - 1].userText,
-  //   model: currentModel
-  // })
-
   const baseURL = api.defaults.baseURL || "";
+  try {
+    chatting = true
 
-
-
-  const response = await fetch(`${baseURL}/chat/${sessionId}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "text/event-stream",
-    },
-    body: JSON.stringify({
-      message: messages.value[messages.value.length - 1].userText,
-      model: currentModel.value
+    const response = await fetch(`${baseURL}/chat/${sessionId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+      body: JSON.stringify({
+        message: messages.value[messages.value.length - 1].userText,
+        model: currentModel.value
+      })
     })
-  });
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
 
-  messages.value[messages.value.length - 1].isLoading = false
+    messages.value[messages.value.length - 1].isLoading = false
 
-  // 处理流式响应
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error("无法获取响应流");
-  }
+    // 处理流式响应
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error("无法获取响应流")
+    }
 
-  const decoder = new TextDecoder();
+    const decoder = new TextDecoder()
+    let content = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+      const chunk = decoder.decode(value, { stream: true })
+      const lines = chunk.split("\n")
 
-    const chunk = decoder.decode(value, { stream: true });
-    const lines = chunk.split("\n");
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = JSON.parse(line.slice(6)) as StreamResult;
 
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        const data = JSON.parse(line.slice(6)) as StreamResult;
-
-        if (data.type === "chunk") {
-          // 追加内容到AI消息
-          messages.value[messages.value.length - 1].aiText+=data.content;
-        } else if (data.type === "end") {
-          break;
-        } else if (data.type === "error") {
-          console.error(`对话出错: ${data.content}`);
-          break;
+          if (data.type === "chunk") {
+            // 追加内容到AI消息
+            content+=data.content;
+            messages.value[messages.value.length - 1].aiText = marked(content) as string
+          } else if (data.type === "end") {
+            break
+          } else if (data.type === "error") {
+            console.error(`对话出错: ${data.content}`)
+            break
+          }
         }
       }
     }
+  }catch (error){
+    console.error(error)
+  }finally {
+    chatting = false
   }
 }
 
@@ -109,6 +113,11 @@ function handleEnter(e: KeyboardEvent) {
 
 function handleShiftEnter() {
   // 允许换行
+}
+
+function createNewChat(){
+  createSession()
+  messages.value=[]
 }
 
 onMounted(() => {
@@ -122,26 +131,36 @@ onMounted(() => {
     <ul>
       <li><i class="iconfont icon-ai"></i></li>
       <li><i class="iconfont icon-zhankaicebianlan"></i></li>
-      <li><i class="iconfont icon-duihuakuang"></i></li>
+      <li><i class="iconfont icon-duihuakuang" @click="createNewChat"></i></li>
     </ul>
-    <i class="bottom iconfont icon-tuichu"></i>
+    <router-link to="/" class="button">
+      <i class="bottom iconfont icon-tuichu"></i>
+    </router-link>
   </div>
 
+  <select class="change-model" v-model="currentModel" id="llm-select">
+    <option v-for="model in llm">{{ model }}</option>
+  </select>
+
   <div class="chatting">
-    <h1>AI聊天助手</h1>
+    <div class="header-container">
+      <span class="iconfont icon-ai"></span>
+      <h1>AI聊天助手</h1>
+    </div>
     <p>你好，我是你的AI助手！请问有什么可以帮助你的吗？</p>
     <hr>
     <div v-for="message in messages">
       <div class="message-container user-message">
-        <div class="bubble user-bubble">{{ message.userText }}</div>
-        <div class="avatar user-avatar">用户</div>
+        <span class="bubble user-bubble">{{ message.userText }}</span>
+        <span class="avatar user-avatar">用户</span>
       </div>
       <div class="message-container ai-message">
-        <div class="avatar ai-avatar">AI</div>
-        <div v-show="message.isLoading" class="loading-spinner"></div>
-        <div v-show="!message.isLoading" class="bubble ai-bubble">{{ message.aiText }}</div>
+        <span class="avatar ai-avatar">AI</span>
+        <span v-show="message.isLoading" class="loading-spinner"></span>
+        <span v-show="!message.isLoading" class="bubble ai-bubble" v-html="message.aiText" ></span>
       </div>
     </div>
+    <div class="write-block"></div>
   </div>
 
   <div class="input-box">
@@ -149,11 +168,9 @@ onMounted(() => {
               v-model="uerInput"
               @keydown.enter.exact="handleEnter"
               @keydown.shift.enter="handleShiftEnter"></textarea>
-    <select v-model="currentModel" id="llm-select">
-      <option v-for="model in llm">{{ model }}</option>
-    </select>
     <i class="iconfont icon-jiantou2-copy-copy" @click="sendMessage()"></i>
   </div>
+
 </template>
 
 <style scoped>
@@ -161,15 +178,7 @@ onMounted(() => {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
-
-li {
-  list-style: none;
-}
-
-i {
-  font-size: 50px;
-  cursor: pointer;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
 .sidebar {
@@ -182,44 +191,72 @@ i {
   box-shadow: 0 10px 10px rgba(0, 0, 0, 0.5);
   padding-top: 20px;
 }
+li {
+  text-align: center;
+  margin-bottom: 50px;
+  list-style: none;
+}
+i{
+  font-size: 40px;
+  color: #0ce5bb;
+  cursor: pointer;
+}
+.sidebar .button{
+  position: absolute;
+  text-align: center;
+  bottom: 80px;
+}
+.sidebar .button i {
+  font-size: 40px;
+  margin-left: 20px;
+}
+
+.change-model {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 8px 12px;
+  font-size: 16px;
+  border: 2px solid #007bff;
+  border-radius: 5px;
+  background-color: white;
+  color: #333;
+  cursor: pointer;
+  z-index: 1000;
+}
 
 .chatting {
   text-align: center;
   margin: 20px auto;
   max-width: 70%;
 }
+
+.header-container {
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.header-container .iconfont{
+  margin-bottom: 8px;
+  color: #007bff;
+  font-size: 42px;
+  margin-right: 10px;
+}
 .chatting h1{
   color: #007bff;
-  font-size: 28px;
+  font-size: 34px;
   margin-bottom: 10px;
 }
 .chatting p {
   font-size: 18px;
-  color: #666;
+  color: #3e3a3a;
 }
 hr{
   margin-bottom: 20px;
 }
-.avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: bold;
-  flex-shrink: 0;
-}
-.user-avatar {
-  color: #f1d459;
-  margin-left: 10px;
-}
 
-.ai-avatar {
-  color: #007bff;
-  margin-right: 10px;
-}
 
 .bubble {
   padding: 12px 16px;
@@ -230,21 +267,70 @@ hr{
 }
 
 .ai-bubble {
-  background-color: white;
-  color: #333;
+  background-color: #efecec;
+  color: #0e0b0b;
   border-top-left-radius: 4px;
+  text-align: left;
+  margin-left: 10px;
 }
 
 .user-bubble {
-  background-color: #007bff;
-  color: white;
+  background-color: #bdf6e8;
+  color: #090707;
   border-top-right-radius: 4px;
 }
+
+.avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  flex-shrink: 0;
+  border: 2px solid #ddd;
+}
+
+.user-avatar {
+  margin-left: 10px;
+  background-color: #0ce5bb;
+  color: #f8f8f8;
+  border-color: #0ce8ad;
+}
+
+.ai-avatar {
+  font-size: 20px;
+  margin-right: 10px;
+  background-color: #f8f9fa;
+  color: #333;
+  border-color: #6c757d;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-top: 10px;
+  margin-left: 10px;
+  display: inline-block;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 
 .message-container {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 10px;
+  margin-top: 30px;
+  margin-bottom: 30px;
 }
 
 .user-message {
@@ -257,23 +343,41 @@ hr{
   justify-content: flex-start;
 }
 
+.write-block{
+  margin-bottom: 150px;
+}
 
 .input-box {
   text-align: center;
-  background-color: #b0b7c0;
+  background-color: #ffffff;
   position: fixed;
   bottom: 20px;
-  left: 55%;
+  left: 53%;
   transform: translateX(-50%);
-  width: 70%;
+  width: 80%;
 }
 
 textarea {
+  border: 2px solid #2dbdea;
+  font-size: 20px;
   resize: none;
-  width: 80%;
+  width: 90%;
   height: 100px;
   padding: 10px;
+  padding-right: 60px;
   border-radius: 5px;
+}
+
+.input-box i {
+  position: absolute;
+  bottom: 10px;
+  right: 2px;
+  font-size: 40px;
+  cursor: pointer;
+  color: #ffffff;
+  background-color: #007bff;
+  border-radius: 50%;
+  border-color: #007bff;
 }
 
 </style>
