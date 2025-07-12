@@ -358,7 +358,7 @@ hr{
 }
 
 .write-block{
-  margin-bottom: 200px;
+  height: 150px;
 }
 
 .input-box {
