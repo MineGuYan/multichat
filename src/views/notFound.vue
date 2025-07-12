@@ -4,7 +4,7 @@
 
 <template>
   <div class="notFound-container">
-      <router-link to="/back" class="button">返回主页</router-link>
+      <router-link to="/" class="button">返回主页</router-link>
   </div>
 </template>
 
@@ -12,6 +12,7 @@
 .button {
   background-color: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(8px);
+  /* 联块级元素（可设置宽高，同时保持行内特性） */
   display: inline-block;
   padding: 15px 30px;
   color: #078eef;
@@ -24,7 +25,7 @@
   border: 1px solid rgba(255, 255, 255, 0.3);
   position: fixed;
   top: 57%;
-  left: 47.5%;
+  left: 47.3%;
   z-index: 100;
 }
 
