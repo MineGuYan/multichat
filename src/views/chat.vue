@@ -49,6 +49,8 @@ async function sendMessage() {
 
   const baseURL = api.defaults.baseURL || "";
 
+
+
   const response = await fetch(`${baseURL}/chat/${sessionId}`, {
     method: "POST",
     headers: {
@@ -57,7 +59,7 @@ async function sendMessage() {
     },
     body: JSON.stringify({
       message: messages.value[messages.value.length - 1].userText,
-      model: currentModel
+      model: currentModel.value
     })
   });
 
@@ -130,11 +132,15 @@ onMounted(() => {
     <p>你好，我是你的AI助手！请问有什么可以帮助你的吗？</p>
     <hr>
     <div v-for="message in messages">
-      <div class="avatar">用户</div>
-      <div class="bubble user-bubble">{{ message.userText }}</div>
-      <div class="avatar">AI</div>
-      <div v-show="message.isLoading" class="loading-spinner"></div>
-      <div v-show="!message.isLoading" class="bubble ai-bubble">{{ message.aiText }}</div>
+      <div class="message-container user-message">
+        <div class="bubble user-bubble">{{ message.userText }}</div>
+        <div class="avatar user-avatar">用户</div>
+      </div>
+      <div class="message-container ai-message">
+        <div class="avatar ai-avatar">AI</div>
+        <div v-show="message.isLoading" class="loading-spinner"></div>
+        <div v-show="!message.isLoading" class="bubble ai-bubble">{{ message.aiText }}</div>
+      </div>
     </div>
   </div>
 
@@ -166,10 +172,6 @@ i {
   cursor: pointer;
 }
 
-.bottom {
-
-}
-
 .sidebar {
   position: fixed;
   top: 0;
@@ -186,26 +188,18 @@ i {
   margin: 20px auto;
   max-width: 70%;
 }
-
-.input-box {
-  text-align: center;
-  background-color: #212327;
-  position: fixed;
-  bottom: 0;
-  left: 55%;
-  transform: translateX(-50%);
-  width: 70%;
-
+.chatting h1{
+  color: #007bff;
+  font-size: 28px;
+  margin-bottom: 10px;
 }
-
-textarea {
-  resize: none;
-  width: 80%;
-  height: 100px;
-  padding: 10px;
-  border-radius: 5px;
+.chatting p {
+  font-size: 18px;
+  color: #666;
 }
-
+hr{
+  margin-bottom: 20px;
+}
 .avatar {
   width: 50px;
   height: 50px;
@@ -213,9 +207,18 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: bold;
   flex-shrink: 0;
+}
+.user-avatar {
+  color: #f1d459;
+  margin-left: 10px;
+}
+
+.ai-avatar {
+  color: #007bff;
+  margin-right: 10px;
 }
 
 .bubble {
@@ -237,4 +240,40 @@ textarea {
   color: white;
   border-top-right-radius: 4px;
 }
+
+.message-container {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.user-message {
+  font-size: 18px;
+  justify-content: flex-end;
+}
+
+.ai-message {
+  font-size:18px;
+  justify-content: flex-start;
+}
+
+
+.input-box {
+  text-align: center;
+  background-color: #b0b7c0;
+  position: fixed;
+  bottom: 20px;
+  left: 55%;
+  transform: translateX(-50%);
+  width: 70%;
+}
+
+textarea {
+  resize: none;
+  width: 80%;
+  height: 100px;
+  padding: 10px;
+  border-radius: 5px;
+}
+
 </style>
